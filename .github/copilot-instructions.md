@@ -12,16 +12,25 @@ Você atua como QA Analyst neste repositório. Siga estas regras em qualquer ger
 
 ## Convenções deste repositório (leia antes de gerar spec)
 
-> Bloco preenchido a partir do `qa/diagnostico.mjs`. Enquanto estiver com `<…>`, **pare e pergunte** antes de gerar spec.
+Preenchidas a partir do diagnóstico de 03/11/2026. Se algo aqui não bater com o código, o código vence — e avise.
 
-- Spec vai em `<pasta de specs por camada/projeto>`, nome `<KEY>-CT-<nn>-<slug>.spec.ts`.
-- Importe `test` e `expect` de `<fixture principal>` — nunca de `@playwright/test` direto se o repo tiver fixture própria.
-- Front: use os Page Objects de `<pasta de pages>`. Se a tela não tem Page Object, crie um seguindo o padrão dos existentes, antes do spec.
-- API: use `<contexto/fixture de API do repo>`.
-- Ambiente/credenciais: `<função ou variáveis que o repo usa>`; nunca literal no spec.
-- Vínculo com Xray: `<utilitário do repo, ex. linkToXray>`; se o repo não tiver, use `test.info().annotations.push({ type: 'xray.testKey', description: '<chave>' })` — o `evidencias-gerar.mjs` lê essa annotation.
-- Para evidência, cada passo relevante usa `await test.step('…', async () => { … })` e, no front, `await testInfo.attach('passo-<nn>', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })`.
-- Antes de escrever um spec novo, **abra dois specs existentes da mesma pasta** e copie a estrutura (imports, fixtures, skip, vínculo Xray).
+- **Projetos Playwright** (`src/config/projects.ts`, objeto `PROJECTS`): `multHostMultiprodutoFront` → `mult-host-multiproduto-front`, `bmgConsigMaisFront` → `bmg-consig-mais-front`, `acpsInterfaceVendaProdutoBff` → `acps-interface-venda-produto-bff`, `acpsHostMultiprodutoBff` → `acps-host-multiproduto-bff`. Confirme os nomes das chaves abrindo `projects.ts`.
+- **Spec** vai em `tests/frontend/<projeto>/` ou `tests/api/<projeto>/`, nome `<KEY>-CT-<nn>-<slug>.spec.ts`.
+- **Imports** (copie de um spec vizinho):
+  ```ts
+  import { test, expect } from '../../../src/fixtures/test';
+  import { readEnvVar } from '../../../src/config/environment';
+  import { PROJECTS, getBaseUrl, missingConfigMessage } from '../../../src/config/projects';
+  import { linkToXray } from '../../../src/utils/xray';
+  ```
+- **Skip por ambiente**, sempre no topo do `describe`: `test.skip(!getBaseUrl(project), missingConfigMessage(project, 'URL'));`. Caminho de rota vem de env: `readEnvVar(project.envPrefix, 'NOME_PATH')` com `test.skip(!path, missingConfigMessage(project, 'NOME_PATH'))`. Nova variável → adicionar também no `.env.example`, sem valor.
+- **API**: `const api = await apiContextFor(project)`; sem auth: `apiContextFor(project, { headers: { Authorization: '' } })`. Asserções: `response.status()`, `response.headers()['content-type']`, `await response.json()`.
+- **Front**: `loginPageFor(project)` e `homePageFor(project)` (Page Objects em `src/pages/`, base em `base.page.ts`). Tela nova = Page Object novo em `src/pages/<tela>.page.ts` estendendo `BasePage`, criado antes do spec e revisado por mim.
+- **Credenciais**: nunca literais; o fixture resolve a partir do `.env` (`<PREFIXO>_USERNAME_<AMB>`, `<PREFIXO>_TOKEN_<AMB>`, fallback `E2E_*`).
+- **Xray**: primeira linha de cada teste `linkToXray(testInfo, { testKey: '<chave do Test>', requirement: '<KEY da história>' })`. As chaves ficam num objeto `const XRAY = { ... }` no topo do spec, como nos specs existentes. Sem chave ainda: `'PENDENTE'`.
+- **Evidência**: cada Dado/Quando/Então vira `await test.step('…', async () => { … })`. Front: `await testInfo.attach('passo-<nn>', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })` nos passos que mudam a tela. API: `await testInfo.attach('request-<nn>', { body: JSON.stringify({ method, url, headers, body }, null, 2), contentType: 'application/json' })` e `response-<nn>` com status + corpo. O `qa/evidencias-gerar.mjs` mascara URL e Authorization.
+- **Config que já existe e não se mexe**: reporters `json` (`reports/results.json`) e `junit` (`reports/junit-results.xml`, annotations como properties); `screenshot: only-on-failure` (por isso o attach manual acima); `retries` só em CI.
+- Antes de escrever um spec novo, **abra os dois specs existentes da mesma camada** (`tests/api/acps-host-multiproduto-bff/multiproduto.spec.ts` para API; `tests/frontend/bmg-consig-mais-front/login.spec.ts` para front) e copie a estrutura.
 
 ## Formato dos cenários (`01-cenarios.md`)
 
